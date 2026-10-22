@@ -9,17 +9,24 @@ def chat_view(request):
 
         if user_message:
             history = request.session.get("history", [])
-            interaction_id = request.session.get("interaction_id")
 
-            history.append({"role": "user", "text": user_message})
+            # Turn the saved chat into the format the model expects.
+            # (Only the last 20 messages, so it doesn't grow forever.)
+            model_history = [
+                {
+                    "role": "assistant" if m["role"] == "agent" else "user",
+                    "content": m["text"],
+                }
+                for m in history[-20:]
+            ]
 
             try:
-                answer, new_id = run_agent(user_message, interaction_id)
-                request.session["interaction_id"] = new_id
+                answer = run_agent(user_message, model_history)
             except Exception as exc:
                 answer = f"Something went wrong: {exc}"
 
-            history.append({"role": "agent", "text": answer})
+            history.append({"role": "user", "text": user_message})
+            history.append({"role": "agent", "text": answer or "(No response)"})
             request.session["history"] = history
 
         return redirect("chat")
